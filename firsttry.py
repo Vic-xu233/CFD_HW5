@@ -10,9 +10,9 @@ L = 1.0               # 区域尺寸
 nu = 0.001            # 黏性系数
 dx = L / (N - 1)      # 空间步长
 dy = dx
-dt = 0.001            # 时间步长
-max_iter = 10000      # 最大迭代次数
-threshold = 1e-6      # 收敛阈值
+dt = 0.01            # 时间步长
+max_iter = 15000      # 最大迭代次数
+threshold = 1e-8      # 收敛阈值
 
 x=np.linspace(0, L, N)
 y=np.linspace(0, L, N)
@@ -31,24 +31,32 @@ def compute_velocity(psi,u,v):
     v[1:-1, 1:-1] = -(psi[2:, 1:-1] - psi[:-2, 1:-1]) / (2*dy)
     u[-1, :] = u_top
     return u, v
-def update_psi(psi, omega):
-    # 使用SOR方法更新流函数
-    w=1.8
-    beta=dx/dy
+def update_psi(psi, omega, dx, dy, max_iter=10000, threshold=1e-6, w=1.8):
+    beta2 = (dx / dy) ** 2
+    coeff = 1 / (2 * (1 + beta2))
+    
     for iteration in range(max_iter):
-        psi_old = psi.copy() 
+        psi_old = psi.copy()
+        
         for i in range(1, N - 1):
             for j in range(1, N - 1):
-                T_new = (1 / (2 * (1 + beta**2))) * (
-                    psi_old[i+1, j] + T[i-1, j] + beta**2 * (psi_old[i, j+1] + psi_old[i, j-1])
-                )
-                T[i, j] += omega * (T_new - T[i, j])
-        # 边界条件
+                residual = (
+                    psi[i+1, j] + psi[i-1, j] +
+                    beta2 * (psi[i, j+1] + psi[i, j-1]) +
+                    dx**2 * omega[i, j]
+                ) * coeff - psi[i, j]
+                psi[i, j] += w * residual
+        # 设置边界条件
+        psi[0, :] = 0
         psi[-1, :] = 0
-        psi[:, 0] = psi[:, -1] = psi[0, :] = 0
-        error = np.max(np.abs(T - T_old))
+        psi[:, 0] = 0
+        psi[:, -1] = 0
+
+        # 收敛判断
+        error = np.max(np.abs(psi - psi_old))
         if error < threshold:
-            print(f"经过{iteration+1} 次迭代收敛，松弛因子 ω = {omega}")
+            if iteration % 100 == 0:
+                print(f"SOR收敛，迭代次数 = {iteration+1}，误差 = {error:.2e}，松弛因子 ω = {w}")
             break
 def boundary_conditions(omega, psi, delta_x, u_lid):
     omega[:, -1] = -2 * psi[:, -2] / delta_x**2 - 2 * u_lid / delta_x  # Top wall (moving lid)
@@ -65,13 +73,35 @@ for it in range(max_iter):
             if i == 0 or j == 0 or i == N-1 or j == N-1:
                 continue
             else:
-                dwdx = (omega[i+1, j] - omega[i-1, j]) / (2*dx)
-                dwdy = (omega[i, j+1] - omega[i, j-1]) / (2*dy)
+                dwdx = (omega_old[i+1, j] - omega_old[i-1, j]) / (2*dx)
+                dwdy = (omega_old[i, j+1] - omega_old[i, j-1]) / (2*dy)
                 convective_term = (u_vel[i, j] * dwdx + v_vel[i, j] * dwdy)
                 omega[i, j] = (nu*(omega_old[i+1, j] + omega_old[i-1, j] +
                                    omega_old[i, j+1] + omega_old[i, j-1] - 4*omega_old[i, j]) / (dx*dx)
                 + convective_term) * dt+ omega_old[i, j]
     omega=boundary_conditions(omega, psi, dx, u_top)
-    update_psi(psi, omega)
+    update_psi(psi, omega,dx,dy)
+    err = np.max(np.abs(omega - omega_old))
+    if np.isnan(omega).any():
+        print(f"NaN出现于迭代 {it}")
+        break
+    if it % 100 == 0:
+        print(f"Iter {it}, omega_min={np.min(omega):.2f}, error={err:.2e}")
+    if err < threshold:
+        print(f"收敛于迭代 {it}")
+        break
 
-    
+velocity_magnitude = np.sqrt(u_vel**2 + v_vel**2)
+
+plt.figure(figsize=(12,5))
+plt.subplot(121)
+plt.contourf(X, Y, velocity_magnitude, levels=50, cmap='jet')
+plt.colorbar(label='速度大小')
+plt.title('速度场分布')
+
+plt.subplot(122)
+plt.contour(X, Y, psi, levels=30, colors='k', linewidths=0.5)
+plt.streamplot(X, Y, u_vel, v_vel, density=2, color='white')
+plt.title('流线图')
+plt.tight_layout()
+plt.show()
