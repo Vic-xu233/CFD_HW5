@@ -6,13 +6,13 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 #定义网格
-N=136                  # 网格数
+N=130                  # 网格数
 L = 1.0               # 区域尺寸
 nu = 0.001            # 黏性系数
 dx = L / (N - 1)      # 空间步长
 dy = dx
-dt = 0.01            # 时间步长
-max_iter = 20000      # 最大迭代次数
+dt = 0.001            # 时间步长
+max_iter = 50000      # 最大迭代次数
 threshold = 1e-7      # 收敛阈值
 
 x=np.linspace(0, L, N)
@@ -129,7 +129,7 @@ for it in range(max_iter):
     if np.isnan(omega).any():
         print(f"NaN出现于迭代 {it}")
         break
-    if it % 50 == 0:
+    if it % 10 == 0:
         print(f"Iter {it}, omega_min={np.min(omega):.2f}, error={err:.2e}")
     if err < threshold:
         print(f"收敛于迭代 {it}")
