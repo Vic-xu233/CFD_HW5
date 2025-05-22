@@ -26,10 +26,19 @@ v_vel=np.zeros((N, N))  # v 速度
 # ----------------------
 # 辅助函数定义
 # ----------------------
-def compute_velocity(psi,u,v):
-    u[1:-1, 1:-1] = (psi[1:-1, 2:] - psi[1:-1, :-2]) / (2*dx)
-    v[1:-1, 1:-1] = -(psi[2:, 1:-1] - psi[:-2, 1:-1]) / (2*dy)
-    u[-1, :] = u_top
+def compute_velocity(psi, u, v):
+    nx, ny = psi.shape
+    
+    # 计算内部点的速度场
+    for i in range(1, nx-1):
+        for j in range(1, ny-1):
+            u[i, j] = (psi[i, j+1] - psi[i, j-1]) / (2 * dy)  # u = ∂ψ/∂y
+            v[i, j] = -(psi[i+1, j] - psi[i-1, j]) / (2 * dx)  # v = -∂ψ/∂x
+    
+    # 设置顶盖边界条件（假设顶盖在最后一行）
+    for j in range(ny):
+        u[-1, j] = u_top[j]  # 直接赋值为给定的顶盖速度分布
+    
     return u, v
 def update_psi(psi, omega, dx, dy, max_iter=10000, threshold=1e-6, w=1.8):
     beta2 = (dx / dy) ** 2
@@ -59,10 +68,10 @@ def update_psi(psi, omega, dx, dy, max_iter=10000, threshold=1e-6, w=1.8):
                 print(f"SOR收敛，迭代次数 = {iteration+1}，误差 = {error:.2e}，松弛因子 ω = {w}")
             break
 def boundary_conditions(omega, psi, delta_x, u_lid):
-    omega[:, -1] = -2 * psi[:, -2] / delta_x**2 - 2 * u_lid / delta_x  # Top wall (moving lid)
-    omega[:, 0] = -2 * psi[:, 1] / delta_x**2  # Bottom wall
-    omega[0, :] = -2 * psi[1, :] / delta_x**2  # Left wall
-    omega[-1, :] = -2 * psi[-2, :] / delta_x**2  # Right wall
+    omega[-1,:] = -2 * psi[:, -2] / delta_x**2 - 2 * u_lid / delta_x  # Top wall (moving lid)
+    omega[0,:] = -2 * psi[:, 1] / delta_x**2  # Bottom wall
+    omega[:, 0] = -2 * psi[1, :] / delta_x**2  # Left wall
+    omega[:, -1] = -2 * psi[-2, :] / delta_x**2  # Right wall
     return omega
 
 for it in range(max_iter):
