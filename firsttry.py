@@ -5,13 +5,13 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 #定义网格
-N=80                  # 网格数
+N=100                  # 网格数
 L = 1.0               # 区域尺寸
 nu = 0.001            # 黏性系数
 dx = L / (N - 1)      # 空间步长
 dy = dx
 dt = 0.01            # 时间步长
-max_iter = 15000      # 最大迭代次数
+max_iter = 20000      # 最大迭代次数
 threshold = 1e-8      # 收敛阈值
 
 x=np.linspace(0, L, N)
@@ -147,4 +147,5 @@ plt.contour(X, Y, psi, levels=30, colors='k', linewidths=0.5)
 plt.streamplot(X, Y, u_vel, v_vel, density=2, color='white')
 plt.title('流线图')
 plt.tight_layout()
+plt.savefig('速度场和流线.png', dpi=300)
 plt.show()
