@@ -5,7 +5,7 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 #定义网格
-N=50                  # 网格数
+N=80                  # 网格数
 L = 1.0               # 区域尺寸
 nu = 0.001            # 黏性系数
 dx = L / (N - 1)      # 空间步长
@@ -64,7 +64,7 @@ def update_psi(psi, omega, dx, dy, max_iter=10000, threshold=1e-6, w=1.8):
         # 收敛判断
         error = np.max(np.abs(psi - psi_old))
         if error < threshold:
-            if iteration % 100 == 0:
+            if iteration > 2 and iteration % 100 == 0:
                 print(f"SOR收敛，迭代次数 = {iteration+1}，误差 = {error:.2e}，松弛因子 ω = {w}")
             break
 def boundary_conditions(omega, psi, delta_x, u_lid):
@@ -72,6 +72,40 @@ def boundary_conditions(omega, psi, delta_x, u_lid):
     omega[0,:] = -2 * psi[:, 1] / delta_x**2  # Bottom wall
     omega[:, 0] = -2 * psi[1, :] / delta_x**2  # Left wall
     omega[:, -1] = -2 * psi[-2, :] / delta_x**2  # Right wall
+    return omega
+def apply_woods_boundary(omega, psi, dx, u_top):
+    """
+    使用 Woods 壁涡量公式更新边界涡量：
+    - 上壁 (y=1)：使用公式 6.18，包含 u_top, ∂²u/∂x²
+    - 下、左、右：使用公式 6.19（u=0 情况）
+    """
+    N = psi.shape[0]
+    # ---------- 上壁 (y=1)：使用公式 (6.18) ----------
+    i = -1       # 上壁索引
+    i1 = -2      # 内部点
+    # 计算 ∂²u/∂x²：中心差分
+    d2udx2 = (u_top[2:] - 2 * u_top[1:-1] + u_top[:-2]) / dx**2
+    omega[i, 1:-1] = (
+        -0.5 * omega[i1, 1:-1]
+        - (3 / dx**2) * (psi[i1, 1:-1] - psi[i, 1:-1])
+        - (3 / dx) * u_top[1:-1]
+        + (dx / 2) * d2udx2
+    )
+    # ---------- 下壁 (y=0)：使用简化式 (6.19) ----------
+    omega[0, 1:-1] = (
+        -0.5 * omega[1, 1:-1]
+        - (3 / dx**2) * (psi[1, 1:-1] - psi[0, 1:-1])
+    )
+    # ---------- 左壁 (x=0)：使用简化式 (6.19) ----------
+    omega[1:-1, 0] = (
+        -0.5 * omega[1:-1, 1]
+        - (3 / dx**2) * (psi[1:-1, 1] - psi[1:-1, 0])
+    )
+    # ---------- 右壁 (x=1)：使用简化式 (6.19) ----------
+    omega[1:-1, -1] = (
+        -0.5 * omega[1:-1, -2]
+        - (3 / dx**2) * (psi[1:-1, -2] - psi[1:-1, -1])
+    )
     return omega
 
 for it in range(max_iter):
@@ -88,13 +122,13 @@ for it in range(max_iter):
                 omega[i, j] = (nu*(omega_old[i+1, j] + omega_old[i-1, j] +
                                    omega_old[i, j+1] + omega_old[i, j-1] - 4*omega_old[i, j]) / (dx*dx)
                 + convective_term) * dt+ omega_old[i, j]
-    omega=boundary_conditions(omega, psi, dx, u_top)
+    omega=apply_woods_boundary(omega, psi, dx, u_top)
     update_psi(psi, omega,dx,dy)
     err = np.max(np.abs(omega - omega_old))
     if np.isnan(omega).any():
         print(f"NaN出现于迭代 {it}")
         break
-    if it % 100 == 0:
+    if it % 50 == 0:
         print(f"Iter {it}, omega_min={np.min(omega):.2f}, error={err:.2e}")
     if err < threshold:
         print(f"收敛于迭代 {it}")
