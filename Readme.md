@@ -1,0 +1,87 @@
+# 二维驱动方腔流模拟 —— README
+
+本项目实现了二维不可压缩Navier-Stokes方程的数值求解，针对驱动方腔流（Lid-Driven Cavity）问题，使用流函数-涡量（Streamfunction-Vorticity）形式，适用于计算流体力学课程作业或研究。
+
+## 📌 项目特点
+
+* 使用流函数-涡量方法（\$\psi\$-\$\omega\$）求解Navier-Stokes方程。
+* 显式欧拉格式更新涡量，SOR方法迭代解泊松方程。
+* 边界涡量处理采用 Woods 较高精度壁面公式，数值稳定性强。
+* 自动识别主涡中心及角落二次涡位置，便于评估流场结构。
+* 绘制流线图与速度等高图，保存所有结果图像。
+
+---
+
+## 📁 文件结构
+
+| 文件                                           | 描述                                        |
+| -------------------------------------------- | ----------------------------------------- |
+| `main.py`                                    | 主程序，包含模拟全流程及可视化                           |
+| `速度场和流线.png`                                 | 速度模等高与流线图叠加（主图）                           |
+| `vertical_centerline_velocity_profile.png`   | \$x = 0.5\$ 处 \$u\$ 速度剖面图（与 benchmark 对比） |
+| `horizontal_centerline_velocity_profile.png` | \$y = 0.5\$ 处 \$v\$ 速度剖面图                 |
+| `psi_extrema.png`                            | 流函数极值及主涡中心定位图                             |
+
+---
+
+## ⚙️ 参数设置（main.py）
+
+```python
+N =  50            # 网格数 建议<50,80,100>
+nu = 0.001            # 动力粘度
+u_top = sin^2(pi x)   # 顶盖速度分布
+max_iter = 50000      # 最大时间步
+threshold = 1e-7      # 收敛阈值
+dt = 0.001            # 时间步长（建议 CFL < 1）
+w = 1.8               # SOR 松弛因子
+```
+
+
+---
+
+## 🧩 函数功能详解
+
+| 函数名                                                      | 参数                                 | 功能描述                                                                                                                        |
+| -------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `compute_velocity(psi, u, v)`                            | `psi`: 流函数阵列；`u`, `v`: 空的速度阵列      | 利用中心差分公式 \$\frac{\partial \psi}{\partial y}, -\frac{\partial \psi}{\partial x}\$ 计算速度分量 \$u,v\$，并在顶壁赋值 \$u\_{top}\$ 作为边界条件。 |
+| `update_psi(psi, omega, dx, dy, max_iter, threshold, w)` | `psi`, `omega`: 当前流函数与涡量；`w`: 松弛因子 | 利用 SOR（Successive Over-Relaxation）方法迭代求解 \$\nabla^2 \psi = -\omega\$，并在边界处设定 \$\psi = 0\$ 的Dirichlet条件。                     |
+| `apply_woods_boundary(omega, psi, dx, u_top)`            | `omega`, `psi`, `u_top`            | 应用 Woods 高精度边界条件。上壁使用 \$\omega = -0.5\omega\_{in} - \dots\$（公式 6.18），其余壁面采用公式 6.19。相比 Thom 方法，Woods 更稳定，适合更大的时间步。           |
+| `boundary_conditions(omega, psi, delta_x, u_lid)`        | `omega`, `psi`, `u_lid`            | 提供 Thom 较简单的涡量边界处理方式，适用于低速或小时间步稳定模拟。在主程序中可选择性替代 Woods。                                                                      |
+| 主循环部分                                                    | -                                  | 采用显式欧拉格式更新 \$\omega\$，同时调用 `compute_velocity`、`apply_woods_boundary` 和 `update_psi` 实现时间推进和流场演化。每步记录误差并检查收敛。                |
+| 可视化部分                                                    | -                                  | 绘制速度大小图与流线图，生成 \$u(x=0.5)\$ 与 \$v(y=0.5)\$ 剖面图，以及 \$\psi\$ 极值位置（主涡）标记图。辅助教学与验证。                                             |
+| 极值点检测                                                    | -                                  | 利用 `scipy.ndimage` 提取流函数的极大极小值，用于判断主涡与角落二次涡位置及强度，进一步定量分析涡结构。                                                                |
+
+---
+
+## 🚀 使用方法
+
+```bash
+# 1. 安装必要库
+pip install numpy matplotlib scipy
+
+# 2. 运行程序
+python main.py
+
+# 3. 查看生成图片
+速度场和流线.png
+vertical_centerline_velocity_profile.png
+psi_extrema.png
+```
+
+---
+
+## 📊 验证
+
+本代码推荐从以下角度评估数值正确性与精度：
+
+1. **速度剖面图对比**：与 Ghia et al. 的 benchmark 数据对比 \$u(y=0.5)\$ 与 \$v(x=0.5)\$ 曲线。
+2. **主涡位置合理性**：主涡应出现在 \$(x,y) \approx (0.6, 0.7)\$ 附近，\$\psi\$极值明显。
+3. **角落二次涡**：右下、左下、右上、左上可解析出涡旋存在。
+4. **无NaN、数值稳定**：使用 Woods 边界，支持更大 dt，程序不溢出。
+
+---
+
+## 📎 附加说明
+
+* 如需更高网格数（如 \$N=200\$），建议使用更小 dt 或半隐式方法
+
