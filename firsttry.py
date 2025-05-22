@@ -6,12 +6,12 @@ plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
 #定义网格
-N=130                  # 网格数
+N=80                 # 网格数
 L = 1.0               # 区域尺寸
 nu = 0.001            # 黏性系数
 dx = L / (N - 1)      # 空间步长
 dy = dx
-dt = 0.001            # 时间步长
+dt = 0.01            # 时间步长
 max_iter = 50000      # 最大迭代次数
 threshold = 1e-7      # 收敛阈值
 
@@ -145,11 +145,20 @@ plt.title('速度场分布')
 
 plt.subplot(122)
 plt.contour(X, Y, psi, levels=60, colors='k', linewidths=0.5)
-plt.streamplot(X, Y, u_vel, v_vel, density=4, color='red')
 plt.title('流线图')
 plt.tight_layout()
 plt.savefig('速度场和流线.png', dpi=300)
 plt.show()
+
+plt.figure(figsize=(6,6))
+plt.streamplot(X, Y, u_vel, v_vel, density=4, color='red')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('速度流线图')
+plt.tight_layout()
+plt.savefig('动态流线图.png', dpi=300)
+plt.show()
+
 # 1. 垂直中线上的速度剖面（x = L/2）
 # 取垂直中线（x=L/2）上的速度剖面
 mid_x_idx = N // 2  # 水平方向中间的列索引
@@ -176,6 +185,16 @@ plt.close()
 # 2. 主涡涡心、流函数极值位置
 psi_max_pos = np.unravel_index(np.argmax(psi, axis=None), psi.shape)
 psi_min_pos = np.unravel_index(np.argmin(psi, axis=None), psi.shape)
+# 提取索引
+i_max, j_max = psi_max_pos
+i_min, j_min = psi_min_pos
+
+# 对应物理坐标
+x_max = x[j_max]
+y_max = y[i_max]
+x_min = x[j_min]
+y_min = y[i_min]
+
 print(f"主涡中心（psi最大）物理坐标: x={x_max:.4f}, y={y_max:.4f}, ψ={psi[i_max, j_max]:.4f}")
 print(f"主涡中心（psi最小）物理坐标: x={x_min:.4f}, y={y_min:.4f}, ψ={psi[i_min, j_min]:.4f}")
 # 可视化极值点
